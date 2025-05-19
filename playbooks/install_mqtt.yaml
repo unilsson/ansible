@@ -1,0 +1,31 @@
+---
+- name: Install and enable MQTT using systemd
+  hosts: all
+  become: yes
+  tasks:
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Mosquitto and clients
+      apt:
+        name:
+          - mosquitto
+          - mosquitto-clients
+        state: present
+
+    - name: Ensure Mosquitto service is enabled and running
+      systemd:
+        name: mosquitto
+        enabled: yes
+        state: started
+
+    - name: Confirm Mosquitto status
+      command: systemctl is-active mosquitto
+      register: mosquitto_status
+      changed_when: false
+
+    - name: Show Mosquitto status
+      debug:
+        msg: "Mosquitto service is {{ mosquitto_status.stdout }}"

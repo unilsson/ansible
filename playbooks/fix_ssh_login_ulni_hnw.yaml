@@ -1,0 +1,41 @@
+---
+- name: Configure SSH for key-based login and disable root access
+  hosts: all
+  become: yes
+  vars:
+    target_user: "unilsson"
+    public_key_path: "/home/unilsson/.ssh/ulni-hnw-key.pub"
+
+  tasks:
+    - name: Ensure SSH directory exists for the user
+      file:
+        path: "/home/{{ target_user }}/.ssh"
+        state: directory
+        mode: '0700'
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+
+    - name: Upload public key to user's authorized_keys
+      copy:
+        src: "{{ public_key_path }}"
+        dest: "/home/{{ target_user }}/.ssh/authorized_keys"
+        mode: '0600'
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+
+    - name: Ensure SSH configuration enforces key authentication and disables password login and root login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        backrefs: yes
+      loop:
+        - { regexp: '^#?PasswordAuthentication\s+.*', line: 'PasswordAuthentication no' }
+        - { regexp: '^#?PubkeyAuthentication\s+.*', line: 'PubkeyAuthentication yes' }
+        - { regexp: '^#?PermitRootLogin\s+.*', line: 'PermitRootLogin no' }
+
+    - name: Restart SSH service to apply changes
+      service:
+        name: ssh
+        state: restarted

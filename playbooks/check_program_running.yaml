@@ -1,0 +1,21 @@
+---
+- name: Check if a program is running on the host
+  hosts: domoticz
+  gather_facts: no
+  vars:
+    program_name: domoticz  # Change this to the program you want to check
+
+  tasks:
+    - name: Check if "{{ program_name }}" is running
+      shell: pgrep -x "{{ program_name }}"
+      register: program_status
+      ignore_errors: yes
+
+    - name: Display status of "{{ program_name }}"
+      debug:
+        msg: >
+          {% if program_status.rc == 0 %}
+            The program '{{ program_name }}' is running.
+          {% else %}
+            The program '{{ program_name }}' is NOT running.
+          {% endif %}

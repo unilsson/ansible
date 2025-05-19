@@ -1,0 +1,94 @@
+---
+- name: Install Docker, Docker Compose, and configure user permissions
+  hosts: all
+  become: yes
+  vars:
+    docker_user: "{{ ansible_user_id }}"  # Use the current SSH user by default
+    node_red_dir: "/opt/node-red"
+  tasks:
+
+    - name: Install prerequisite packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    - name: Add Docker’s official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Set up the Docker stable repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Update apt cache again after adding Docker repo
+      apt:
+        update_cache: yes
+
+    - name: Install Docker Engine and Docker Compose plugin
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: latest
+
+    - name: Ensure Docker service is enabled and running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ docker_user }}"
+        groups: docker
+        append: yes
+
+    - name: Verify Docker Compose installation
+      command: docker compose version
+      register: compose_version
+      changed_when: false
+      failed_when: compose_version.rc != 0
+
+    - name: Show Docker Compose version
+      debug:
+        msg: "Docker Compose version: {{ compose_version.stdout }}"
+
+    - name: Notify about re-login requirement
+      debug:
+        msg: "User '{{ docker_user }}' has been added to the 'docker' group. A logout/login is required for group changes to take effect."
+
+    - name: Create Node-RED project directory
+      file:
+        path: "{{ node_red_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create Docker Compose file for Node-RED
+      copy:
+        dest: "{{ node_red_dir }}/docker-compose.yml"
+        content: |
+          version: '3'
+          services:
+            nodered:
+              image: nodered/node-red
+              restart: always
+              ports:
+                - "1880:1880"
+              volumes:
+                - ./data:/data
+
+    - name: Start Node-RED container using Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ node_red_dir }}"
+        state: present

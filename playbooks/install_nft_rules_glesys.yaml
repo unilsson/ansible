@@ -1,0 +1,60 @@
+---
+- name: Configure nftables to allow only TCP port 54999 alongside port 80 and port 443
+  hosts: glesys
+  become: true
+
+  tasks:
+    - name: Ensure nftables is installed
+      package:
+        name: nftables
+        state: present
+
+    - name: Enable and start nftables service
+      systemd:
+        name: nftables
+        enabled: true
+        state: started
+
+    - name: Create nftables ruleset to allow only TCP on port 54999
+      copy:
+        dest: /etc/nftables.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          #!/usr/sbin/nft -f
+
+          flush ruleset
+
+          table inet filter {
+            chain input {
+              type filter hook input priority 0;
+              policy drop;
+
+              ct state established,related accept
+              iif "lo" accept
+              tcp dport 80 accept
+              tcp dport 443 accept
+              tcp dport 54999 accept
+            }
+
+            chain forward {
+              type filter hook forward priority 0;
+              policy drop;
+            }
+
+            chain output {
+              type filter hook output priority 0;
+              policy accept;
+            }
+          }
+
+    - name: Reload nftables with new rules
+      command: nft -f /etc/nftables.conf
+      notify: Restart nftables
+
+  handlers:
+    - name: Restart nftables
+      systemd:
+        name: nftables
+        state: restarted

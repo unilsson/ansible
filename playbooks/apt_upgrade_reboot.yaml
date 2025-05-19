@@ -1,0 +1,34 @@
+---
+- name: Update and upgrade packages with conditional reboot
+  hosts: all
+  become: yes
+  tasks:
+
+    - name: Update APT package index
+      apt:
+        update_cache: yes
+
+    - name: Check for available upgrades
+      shell: apt list --upgradeable 2>/dev/null | grep -v "Listing..." | wc -l
+      register: upgradeable_count
+      changed_when: false
+
+    - name: Display number of upgradable packages
+      debug:
+        msg: "Packages to upgrade: {{ upgradeable_count.stdout }}"
+
+    - name: Upgrade packages if needed
+      apt:
+        upgrade: dist
+      when: upgradeable_count.stdout|int > 0
+
+    - name: Check if reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Reboot the server if required
+      reboot:
+        msg: "Rebooting due to package upgrades"
+        reboot_timeout: 600
+      when: reboot_required.stat.exists

@@ -1,0 +1,21 @@
+---
+- name: Check which user is running a specific process
+  hosts: domoticz
+  gather_facts: no
+  vars:
+    process_name: domoticz# 🔁 Change this to the process you want to inspect
+
+  tasks:
+    - name: Find process owner
+      shell: "ps -eo user:20,comm | grep -w {{ process_name }} | awk '{print $1}' | sort | uniq"
+      register: process_user
+      changed_when: false
+
+    - name: Show process owner(s)
+      debug:
+        msg: >
+          {% if process_user.stdout %}
+            The process '{{ process_name }}' is running as: {{ process_user.stdout_lines }}
+          {% else %}
+            The process '{{ process_name }}' is not running.
+          {% endif %}

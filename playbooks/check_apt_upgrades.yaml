@@ -1,0 +1,22 @@
+---
+- name: Run apt update and count upgradable packages
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Run apt update
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Check for upgradable packages
+      ansible.builtin.command: apt list --upgradable
+      register: upgrade_check
+      changed_when: false
+
+    - name: Count upgradable packages
+      ansible.builtin.set_fact:
+        upgradable_count: "{{ upgrade_check.stdout_lines | select('match', '^\\S') | reject('search', 'Listing...') | list | length }}"
+
+    - name: Report number of upgradable packages
+      ansible.builtin.debug:
+        msg: "There are {{ upgradable_count }} packages that can be upgraded."

@@ -1,0 +1,45 @@
+---
+# Version 1.2
+
+- name: Configure systemd-timesyncd for NTP synchronization
+  hosts: all
+  become: true
+  tasks:
+  
+    - name: Ensure systemd-timesyncd is running
+      ansible.builtin.service:
+        name: systemd-timesyncd
+        state: started
+        enabled: yes
+
+    - name: Configure NTP servers in timesyncd
+      copy:
+        dest: /etc/systemd/timesyncd.conf
+        content: |
+          [Time]
+          NTP={{ ntp_servers | join(' ') }}
+          RootDistanceMaxSec=5
+          PollIntervalMinSec=64
+          PollIntervalMaxSec=1024
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart timesyncd
+
+  handlers:
+    - name: Restart timesyncd
+      systemd:
+        name: systemd-timesyncd
+        state: restarted
+
+# This playbook was first written by Ulf Nilsson, lör 10 maj 2025 12:43:44 CEST
+# and this version is considered to be version 1.0. Below will follow
+# information on additional versions.
+#
+# v 1.1
+# hosts removed from the playbook for flexibility. Needs to be defined when
+# calling the playbook. Change implemented lör 10 maj 2025 17:36:50 CEST
+#
+# v 1.2
+# hosts: all added again because of misunderstanding of how the filtering works
+# on the command line. Change implemented sön 11 maj 2025 11:03:07 CEST.
